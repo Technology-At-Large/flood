@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Griddle</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            letter-spacing: 0.3em;
+            color: #e94560;
+        }
+        #status {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            min-height: 1.4em;
+            color: #0f3460;
+            background: #e2e2e2;
+            padding: 6px 18px;
+            border-radius: 4px;
+        }
+        #board {
+            display: inline-grid;
+            gap: 0;
+            margin-bottom: 20px;
+            border: 3px solid #16213e;
+            border-radius: 4px;
+            background: #16213e;
+        }
+        .cell {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #111;
+            transition: transform 0.1s;
+        }
+        .cell:hover {
+            filter: brightness(1.15);
+        }
+        .cell.origin {
+            outline: 3px solid #fff;
+            outline-offset: -1px;
+            z-index: 1;
+        }
+        #turns {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+        #turns span {
+            color: #e94560;
+            font-weight: bold;
+        }
+        #overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        #overlay.show { display: flex; }
+        #overlay-box {
+            background: #16213e;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        #overlay-box h2 { font-size: 2rem; margin-bottom: 15px; }
+        #overlay-box button {
+            padding: 10px 30px;
+            font-size: 1.1rem;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        #overlay-box button:hover { background: #c73652; }
+        #menu {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        #menu .option-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #menu label {
+            font-size: 1.1rem;
+            color: #ccc;
+            min-width: 80px;
+            text-align: right;
+        }
+        #menu select {
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            padding: 6px 12px;
+            background: #16213e;
+            color: #eee;
+            border: 2px solid #e94560;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #menu select:focus {
+            outline: none;
+            border-color: #fff;
+        }
+        #startBtn {
+            font-family: 'Courier New', monospace;
+            font-size: 1.3rem;
+            padding: 12px 40px;
+            margin-top: 10px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            letter-spacing: 0.1em;
+        }
+        #startBtn:hover { background: #c73652; }
+        #game { display: none; }
+        #game.show {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #musicControls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        #musicToggle {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            padding: 6px 16px;
+            background: #16213e;
+            color: #eee;
+            border: 2px solid #e94560;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #musicToggle:hover {
+            border-color: #fff;
+        }
+        #musicSelect {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            padding: 6px 12px;
+            background: #16213e;
+            color: #eee;
+            border: 2px solid #e94560;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #musicSelect:focus {
+            outline: none;
+            border-color: #fff;
+        }
+        #volumeBtn {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            padding: 6px 10px;
+            background: #16213e;
+            color: #eee;
+            border: 2px solid #e94560;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #volumeBtn:hover {
+            border-color: #fff;
+        }
+        #volumeSlider {
+            width: 100px;
+            cursor: pointer;
+            accent-color: #e94560;
+            display: none;
+        }
+        #volumeSlider.show {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>GRIDDLE</h1>
+
+    <div id="menu">
+        <div class="option-row">
+            <label for="gameMode">Mode:</label>
+            <select id="gameMode">
+                <option value="limited" selected>Limited Turns</option>
+                <option value="unlimited">Unlimited Turns</option>
+            </select>
+        </div>
+        <div class="option-row">
+            <label for="boardSize">Size:</label>
+            <select id="boardSize">
+                <option value="9">Small (9x9)</option>
+                <option value="15">Medium (15x15)</option>
+                <option value="21" selected>Large (21x21)</option>
+                <option value="25">Extra Large (25x25)</option>
+            </select>
+        </div>
+        <div class="option-row">
+            <label for="numColors">Difficulty:</label>
+            <select id="numColors">
+                <option value="3">Easy (3 colors)</option>
+                <option value="4">Medium (4 colors)</option>
+                <option value="6" selected>Normal (6 colors)</option>
+                <option value="8">Hard (8 colors)</option>
+                <option value="12">Expert (12 colors)</option>
+                <option value="16">Insane (16 colors)</option>
+            </select>
+        </div>
+        <div class="option-row">
+            <label for="movingOrigin">Origin:</label>
+            <select id="movingOrigin">
+                <option value="moving" selected>Moving</option>
+                <option value="fixed">Fixed (top-left)</option>
+            </select>
+        </div>
+        <button id="startBtn">Start Game</button>
+    </div>
+
+    <div id="game">
+        <div id="turns"></div>
+        <div id="board"></div>
+        <div id="status"></div>
+        <div id="musicControls">
+            <button id="musicToggle" title="Pause Music">&#9208;</button>
+            <select id="musicSelect"></select>
+            <button id="volumeBtn" title="Volume">&#128264;</button>
+            <input type="range" id="volumeSlider" min="0" max="100" value="40" title="Volume">
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div id="overlay-box">
+            <h2 id="overlay-msg"></h2>
+            <button id="overlay-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const menuEl = document.getElementById('menu');
+        const gameEl = document.getElementById('game');
+        const boardEl = document.getElementById('board');
+        const statusEl = document.getElementById('status');
+        const turnsEl = document.getElementById('turns');
+        const overlay = document.getElementById('overlay');
+        const overlayMsg = document.getElementById('overlay-msg');
+        const overlayBtn = document.getElementById('overlay-btn');
+        const numColorsEl = document.getElementById('numColors');
+        const gameModeEl = document.getElementById('gameMode');
+        const boardSizeEl = document.getElementById('boardSize');
+        const movingOriginEl = document.getElementById('movingOrigin');
+        const startBtn = document.getElementById('startBtn');
+        const musicToggleEl = document.getElementById('musicToggle');
+        const musicSelectEl = document.getElementById('musicSelect');
+        const volumeBtnEl = document.getElementById('volumeBtn');
+        const volumeSliderEl = document.getElementById('volumeSlider');
+
+        const clickSound = new Audio('/audio/click-1.mp3');
+        const originChangeSound = new Audio('/audio/origin_change.mp3');
+        const limitedMovesSound = new Audio('/audio/limited_moves.mp3');
+        const levelCompleteSound = new Audio('/audio/level_complete.mp3');
+
+        const bgMusic = new Audio();
+        bgMusic.loop = true;
+        bgMusic.volume = 0.4;
+
+        let musicList = [];
+        let manualTrack = false;
+
+        fetch('/api/music').then(r => r.json()).then(tracks => {
+            musicList = tracks;
+            tracks.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.file;
+                opt.textContent = t.name;
+                musicSelectEl.appendChild(opt);
+            });
+        });
+
+        function getDefaultTrack() {
+            if (numColorsEl.value === '16') return '/audio/music/try-and-solve-this.mp3';
+            if (numColorsEl.value === '3') return '/audio/music/friday-afternoon.mp3';
+            return '/audio/music/8bit-dna.mp3';
+        }
+
+        function updateBgMusic() {
+            const track = manualTrack || getDefaultTrack();
+            if (bgMusic.src !== location.origin + track) {
+                bgMusic.src = track;
+            }
+            musicSelectEl.value = track;
+            if (!musicPaused) {
+                bgMusic.play().catch(() => {});
+            }
+        }
+
+        volumeBtnEl.addEventListener('click', () => {
+            volumeSliderEl.classList.toggle('show');
+        });
+
+        function updateVolumeIcon() {
+            const v = volumeSliderEl.value;
+            if (v == 0) volumeBtnEl.innerHTML = '&#128263;';
+            else if (v < 50) volumeBtnEl.innerHTML = '&#128264;';
+            else volumeBtnEl.innerHTML = '&#128266;';
+        }
+
+        volumeSliderEl.addEventListener('input', () => {
+            bgMusic.volume = volumeSliderEl.value / 100;
+            updateVolumeIcon();
+        });
+
+        musicSelectEl.addEventListener('change', () => {
+            manualTrack = musicSelectEl.value;
+            bgMusic.src = manualTrack;
+            if (!musicPaused) {
+                bgMusic.play().catch(() => {});
+            }
+        });
+
+        let musicPaused = false;
+        musicToggleEl.addEventListener('click', () => {
+            if (bgMusic.paused) {
+                bgMusic.play().catch(() => {});
+                musicPaused = false;
+                musicToggleEl.innerHTML = '&#9208;';
+                musicToggleEl.title = 'Pause Music';
+            } else {
+                bgMusic.pause();
+                musicPaused = true;
+                musicToggleEl.innerHTML = '&#9654;';
+                musicToggleEl.title = 'Resume Music';
+            }
+        });
+
+        let ws;
+
+        function startGame() {
+            menuEl.style.display = 'none';
+            gameEl.classList.add('show');
+            connect();
+        }
+
+        startBtn.addEventListener('click', startGame);
+
+        overlayBtn.addEventListener('click', () => {
+            overlay.classList.remove('show');
+            if (ws) ws.close();
+            menuEl.style.display = 'flex';
+            gameEl.classList.remove('show');
+        });
+
+        function connect() {
+            const seed = Date.now();
+            const colors = numColorsEl.value;
+            const mode = gameModeEl.value;
+            const size = boardSizeEl.value;
+            const origin = movingOriginEl.value;
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${location.host}/${seed}?colors=${colors}&mode=${mode}&size=${size}&origin=${origin}`);
+
+            ws.onopen = () => {
+                statusEl.textContent = 'Pick a color to flood.';
+                updateBgMusic();
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+
+                if (msg.type === 'board') {
+                    renderBoard(msg.data);
+                    if (msg.originChanged) {
+                        originChangeSound.currentTime = 0;
+                        originChangeSound.play();
+                    }
+                    if (msg.limitedMoves) {
+                        limitedMovesSound.currentTime = 0;
+                        limitedMovesSound.play();
+                    }
+                } else if (msg.type === 'gameover') {
+                    if (msg.data) renderBoard(msg.data);
+                    if (msg.win) {
+                        levelCompleteSound.currentTime = 0;
+                        levelCompleteSound.play();
+                        levelCompleteSound.onended = () => {
+                            if (ws) ws.close();
+                            connect();
+                        };
+                    } else {
+                        showOverlay('Game Over!');
+                    }
+                } else if (msg.type === 'error') {
+                    statusEl.textContent = msg.message;
+                }
+            };
+
+            ws.onclose = () => {
+                statusEl.textContent = 'Disconnected.';
+            };
+        }
+
+        function renderBoard(data) {
+            const { Letters, BgColors, Turns, Origin } = data;
+            if (!Letters) return;
+
+            const rows = Letters.length;
+            const cols = Letters[0].length;
+
+            boardEl.style.gridTemplateColumns = `repeat(${cols}, 28px)`;
+            boardEl.innerHTML = '';
+
+            for (let x = 0; x < rows; x++) {
+                for (let y = 0; y < cols; y++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    const letter = Letters[x][y];
+
+                    cell.style.backgroundColor = BgColors[x][y];
+                    cell.style.cursor = 'pointer';
+                    cell.addEventListener('click', () => {
+                        clickSound.currentTime = 0;
+                        clickSound.play();
+                        sendTurn(letter);
+                    });
+
+                    if (Origin && x === Origin.x && y === Origin.y) {
+                        cell.classList.add('origin');
+                    }
+
+                    boardEl.appendChild(cell);
+                }
+            }
+
+            if (gameModeEl.value === 'unlimited') {
+                turnsEl.innerHTML = `Turns: <span>${Turns.Used}</span>`;
+            } else {
+                turnsEl.innerHTML = `Turns: <span>${Turns.Used}</span> / ${Turns.Used + Turns.Remaining}`;
+            }
+        }
+
+        function sendTurn(character) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ c: character }));
+            }
+        }
+
+        function showOverlay(message) {
+            overlayMsg.textContent = message;
+            overlay.classList.add('show');
+        }
+    </script>
+</body>
+</html>
